@@ -190,6 +190,7 @@ module CocoapodsPodMerge
       flags = group_contents['flags']
       forced_swift_language_version = group_contents['swift_version']
       public_headers_by_pod = {}
+      public_header_files = []
       frameworks = []
       prefix_header_contents = []
       private_header_files = []
@@ -232,6 +233,24 @@ module CocoapodsPodMerge
         # Capture all resources to specify in the final podspec
         Pod::UI.puts "\t#{pod.cyan}"
 
+        # Read each pod's podspec, and collect configuration for the final merged podspec
+        Pod::UI.puts "\t\tExtracting Detailed Podspecs".magenta
+        Dir.chdir("#{CacheDirectory}/Podspecs") do
+          info = extract_info_from_podspec(pod, mixed_language_group)
+          frameworks += info.frameworks
+          prefix_header_contents += info.prefix_header_contents
+          private_header_files += info.private_header_files
+          public_header_files += info.public_header_files
+          resources += info.resources
+          script_phases += info.script_phases
+          compiler_flags += info.compiler_flags
+          libraries += info.libraries
+          prepare_command += info.prepare_command
+          vendored_libraries += info.vendored_libraries
+          swift_versions[pod] = info.swift_versions.map(&:to_f)
+          resource_bundles = resource_bundles.merge(info.resource_bundles)
+        end
+
         Dir.chdir("#{CacheDirectory}/Pods/#{pod}") do
           # Validate the Pod
           Pod::UI.puts "\t\tValidating Pod".magenta
@@ -250,7 +269,15 @@ module CocoapodsPodMerge
           end
 
           Pod::UI.puts "\t\tCollecting Public Headers".magenta
-          public_headers_by_pod[pod] = Dir.glob('**/*.h').map { |header| File.basename(header) }
+          public_headers_by_pod[pod] = []
+          if public_header_files.empty? #|| public_header_files.to_s.include?("*")
+            public_headers_by_pod[pod] = Dir.glob('**/*.h').map { |header| File.basename(header) }
+          else
+            for header in public_header_files
+              filename = File.basename(header)
+              public_headers_by_pod[pod] += Dir.glob("**/#{filename}").map { |h| File.basename(h) }
+            end
+          end
 
           Dir.glob('**/*.{h,m,mm,swift}').each do |source_file|
             contents = File.read(source_file)
@@ -287,24 +314,7 @@ module CocoapodsPodMerge
             end
           end
         end
-
-        # Read each pod's podspec, and collect configuration for the final merged podspec
-        Pod::UI.puts "\t\tExtracting Detailed Podspecs".magenta
-        Dir.chdir("#{CacheDirectory}/Podspecs") do
-          info = extract_info_from_podspec(pod, mixed_language_group)
-          frameworks += info.frameworks
-          prefix_header_contents += info.prefix_header_contents
-          private_header_files += info.private_header_files
-          resources += info.resources
-          script_phases += info.script_phases
-          compiler_flags += info.compiler_flags
-          libraries += info.libraries
-          prepare_command += info.prepare_command
-          vendored_libraries += info.vendored_libraries
-          swift_versions[pod] = info.swift_versions.map(&:to_f)
-          resource_bundles = resource_bundles.merge(info.resource_bundles)
-        end
-
+        
         # Copy over the Pods to be merged
         Pod::UI.puts "\t\tCopying Sources".magenta
         Dir.chdir("#{CacheDirectory}/Pods") do
@@ -334,7 +344,8 @@ module CocoapodsPodMerge
 
       # Create the local podspec
       Pod::UI.puts "\tCreating Podspec for the merged framework".magenta
-      create_podspec(merged_framework_name, pods_to_merge, PodspecInfo.new(frameworks.uniq, prefix_header_contents.uniq, private_header_files.uniq, resources.uniq, script_phases.uniq, compiler_flags.uniq, libraries.uniq, prepare_command.uniq, resource_bundles, vendored_libraries.uniq, swift_version), mixed_language_group)
+      pod_spec_info = PodspecInfo.new(frameworks.uniq, prefix_header_contents.uniq, private_header_files.uniq, resources.uniq, script_phases.uniq, compiler_flags.uniq, libraries.uniq, prepare_command.uniq, resource_bundles, vendored_libraries.uniq, swift_version, public_header_files)
+      create_podspec(merged_framework_name, pods_to_merge, pod_spec_info, mixed_language_group)
 
       Pod::UI.puts 'Cleaning up cache'.cyan
       FileUtils.rm_rf(CacheDirectory)
@@ -349,6 +360,7 @@ module CocoapodsPodMerge
       frameworks = []
       prefix_header_contents = []
       private_header_files = []
+      public_header_files = []
       resources = []
       script_phases = []
       compiler_flags = []
@@ -361,6 +373,7 @@ module CocoapodsPodMerge
       frameworks += array_wrapped(podspec['frameworks'])
       compiler_flags += array_wrapped(podspec['compiler_flags'])
       private_header_files += array_wrapped(podspec['private_header_files']).map { |path| "Sources/#{pod}/#{path}" }
+      public_header_files += array_wrapped(podspec['public_header_files']).map { |path| "Sources/#{pod}/#{path}" }
       prefix_header_contents += array_wrapped(podspec['prefix_header_contents'])
       resources += array_wrapped(podspec['resource']).map { |path| "Sources/#{pod}/#{path}" }
       resources += array_wrapped(podspec['resources']).map { |path| "Sources/#{pod}/#{path}" }
@@ -408,7 +421,7 @@ module CocoapodsPodMerge
         end
       end
 
-      PodspecInfo.new(frameworks, prefix_header_contents, private_header_files, resources, script_phases, compiler_flags, libraries, prepare_command, resource_bundles, vendored_libraries, swift_versions)
+      PodspecInfo.new(frameworks, prefix_header_contents, private_header_files, resources, script_phases, compiler_flags, libraries, prepare_command, resource_bundles, vendored_libraries, swift_versions, public_header_files)
     end
 
     def array_wrapped(object)
@@ -502,7 +515,7 @@ module CocoapodsPodMerge
           s.author           = { 'GrabTaxi Pte Ltd' => 'dummy@grabtaxi.com' }
           s.source           = { :git => 'https://github.com/grab/cocoapods-pod-merge', :tag => '1.0.0' }
           s.ios.deployment_target = '8.0'
-          s.source_files = 'Sources/**/*.{h,m,mm,swift}'
+          s.source_files = 'Sources/**/*.{h,m,mm,swift,c}'
         )
 
       podspec = File.new("#{InstallationDirectory}/#{merged_framework_name}/#{merged_framework_name}.podspec", 'w')
@@ -563,8 +576,9 @@ module CocoapodsPodMerge
     attr_accessor :resource_bundles
     attr_accessor :vendored_libraries
     attr_accessor :swift_versions
+    attr_accessor :public_header_files
 
-    def initialize(frameworks, prefix_header_contents, private_header_files, resources, script_phases, compiler_flags, libraries, prepare_command, resource_bundles, vendored_libraries, swift_versions)
+    def initialize(frameworks, prefix_header_contents, private_header_files, resources, script_phases, compiler_flags, libraries, prepare_command, resource_bundles, vendored_libraries, swift_versions, public_header_files)
       @frameworks = frameworks
       @prefix_header_contents = prefix_header_contents
       @private_header_files = private_header_files
@@ -576,6 +590,7 @@ module CocoapodsPodMerge
       @resource_bundles = resource_bundles
       @vendored_libraries = vendored_libraries
       @swift_versions = swift_versions
+      @public_header_files = public_header_files
     end
   end
 
