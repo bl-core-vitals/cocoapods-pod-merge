@@ -193,7 +193,7 @@ module CocoapodsPodMerge
       public_header_files = {}
       frameworks = []
       prefix_header_contents = []
-      private_header_files = []
+      private_header_files = {}
       resources = []
       script_phases = []
       compiler_flags = []
@@ -241,7 +241,7 @@ module CocoapodsPodMerge
           info = extract_info_from_podspec(pod, mixed_language_group)
           frameworks += info.frameworks
           prefix_header_contents += info.prefix_header_contents
-          private_header_files += info.private_header_files
+          private_header_files[pod] = info.private_header_files
           public_header_files[pod] = info.public_header_files
           resources += info.resources
           script_phases += info.script_phases
@@ -273,9 +273,10 @@ module CocoapodsPodMerge
 
           Pod::UI.puts "\t\tCollecting Public Headers".magenta
           if public_header_files[pod].present?
+            public_headers_by_pod[pod] = []
             for header in public_header_files[pod]
               filename = File.basename(header)
-              public_headers_by_pod[pod] = Dir.glob("**/#{filename}").map { |h| File.basename(h) }
+              public_headers_by_pod[pod] += Dir.glob("**/#{filename}").map { |h| File.basename(h) }
             end
           else
             public_headers_by_pod[pod] = Dir.glob('**/*.h').map { |header| File.basename(header) }
@@ -424,6 +425,7 @@ module CocoapodsPodMerge
         frameworks += info.frameworks
         prefix_header_contents += info.prefix_header_contents
         private_header_files += info.private_header_files.map { |path| "Sources/#{pod}/#{path}" }
+        public_header_files += info.public_header_files.map { |path| "Sources/#{pod}/#{path}" }
         resources += info.resources.map { |path| "Sources/#{pod}/#{path}" }
         script_phases += info.script_phases
         compiler_flags += info.compiler_flags
@@ -492,10 +494,10 @@ module CocoapodsPodMerge
     end
 
     def generate_module_map(merged_framework_name, public_headers, private_headers)
-      private_filenames = private_headers.map { |path| File.basename(path) } 
       module_map = File.new("#{InstallationDirectory}/#{merged_framework_name}/Sources/module.modulemap", 'w')
       module_map.puts("framework module #{merged_framework_name} {")
       public_headers.each do |pod, headers|
+        private_filenames = private_headers[pod].map { |path| File.basename(path) }
         module_map.puts("\n\texplicit module #{pod.delete('+').delete('_')} {")
         headers.each do |header|
           next if private_filenames.include?(header)
