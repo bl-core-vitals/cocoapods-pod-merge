@@ -331,7 +331,7 @@ module CocoapodsPodMerge
       # Generate Module Map
       unless mixed_language_group
         Pod::UI.puts "\tGenerating module map".magenta
-        generate_module_map(merged_framework_name, public_headers_by_pod)
+        generate_module_map(merged_framework_name, public_headers_by_pod, private_header_files)
       end
 
       # Verify there's a common Swift language version across the group
@@ -491,13 +491,14 @@ module CocoapodsPodMerge
       file&.close
     end
 
-    def generate_module_map(merged_framework_name, public_headers)
+    def generate_module_map(merged_framework_name, public_headers, private_headers)
+      private_filenames = private_headers.map { |path| File.basename(path) } 
       module_map = File.new("#{InstallationDirectory}/#{merged_framework_name}/Sources/module.modulemap", 'w')
       module_map.puts("framework module #{merged_framework_name} {")
       public_headers.each do |pod, headers|
         module_map.puts("\n\texplicit module #{pod.delete('+').delete('_')} {")
-
         headers.each do |header|
+          next if private_filenames.include?(header)
           module_map.puts("\t\theader \"#{header}\"")
         end
         module_map.puts("\t}")
