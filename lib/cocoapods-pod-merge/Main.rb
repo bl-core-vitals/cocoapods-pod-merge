@@ -502,7 +502,10 @@ module CocoapodsPodMerge
           s.author           = { 'GrabTaxi Pte Ltd' => 'dummy@grabtaxi.com' }
           s.source           = { :git => 'https://github.com/grab/cocoapods-pod-merge', :tag => '1.0.0' }
           s.ios.deployment_target = '8.0'
-          s.source_files = 'Sources/**/*.{h,m,mm,swift}'
+          s.source_files = 'Sources/**/*.{h,m,mm,swift,c}'
+          s.xcconfig = {
+            'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) POD_MERGE=1'
+          }
         )
 
       podspec = File.new("#{InstallationDirectory}/#{merged_framework_name}/#{merged_framework_name}.podspec", 'w')
