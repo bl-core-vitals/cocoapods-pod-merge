@@ -558,7 +558,7 @@ module CocoapodsPodMerge
       end
 
       unless private_header_files.empty?
-        podspec.puts("s.private_header_files = #{private_header_files.to_s.delete('[').delete(']').gsub(', , ', ', ')}")
+        podspec.puts("s.private_header_files = #{private_header_files.to_s.delete('[').delete(']').gsub(', , ', ', ').delete_suffix(',')}")
       end
 
       unless libraries.empty?
