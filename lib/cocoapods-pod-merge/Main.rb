@@ -351,7 +351,8 @@ module CocoapodsPodMerge
 
       # Create the local podspec
       Pod::UI.puts "\tCreating Podspec for the merged framework".magenta
-      pod_spec_info = PodspecInfo.new(frameworks.uniq, prefix_header_contents.uniq, private_header_files.uniq, resources.uniq, script_phases.uniq, compiler_flags.uniq, libraries.uniq, prepare_command.uniq, resource_bundles, vendored_libraries.uniq, swift_version, public_header_files, module_names)
+      private_headers_uniq = private_header_files.values.flatten
+      pod_spec_info = PodspecInfo.new(frameworks.uniq, prefix_header_contents.uniq, private_headers_uniq, resources.uniq, script_phases.uniq, compiler_flags.uniq, libraries.uniq, prepare_command.uniq, resource_bundles, vendored_libraries.uniq, swift_version, public_header_files, module_names)
       create_podspec(merged_framework_name, pods_to_merge, pod_spec_info, mixed_language_group)
 
       Pod::UI.puts 'Cleaning up cache'.cyan
