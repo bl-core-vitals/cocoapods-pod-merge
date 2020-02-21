@@ -282,6 +282,8 @@ module CocoapodsPodMerge
             public_headers_by_pod[pod] = Dir.glob('**/*.h').map { |header| File.basename(header) }
           end
 
+          same_source_file = ""
+          new_module_name = ""
           Dir.glob('**/*.{h,m,mm,swift}').each do |source_file|
             contents = File.read(source_file)
 
@@ -293,10 +295,22 @@ module CocoapodsPodMerge
                 next unless modular_imports&.last
 
                 Pod::UI.puts "\t\tExperimental: ".yellow + "Found Modular Imports in #{source_file}, fixing this by converting to local #import".magenta
-                contents_with_imports_fixed = contents.gsub(%r{<#{module_name}/(.+)>}) do |match|
+
+                contents_with_imports_fixed = contents
+                # Quickfix: same file changes twice in the same time
+                if same_source_file == "#{source_file}"
+                  contents_with_imports_fixed = contents_with_imports_fixed.gsub(%r{<#{new_module_name}/(.+)>}) do |match|
+                    match.gsub(%r{<#{new_module_name}/(.+)>}, "\"#{Regexp.last_match(1)}\"")
+                  end
+                end
+
+                contents_with_imports_fixed = contents_with_imports_fixed.gsub(%r{<#{module_name}/(.+)>}) do |match|
                   match.gsub(%r{<#{module_name}/(.+)>}, "\"#{Regexp.last_match(1)}\"")
                 end
+
                 File.open(source_file, 'w') { |file| file.puts contents_with_imports_fixed }
+                same_source_file = "#{source_file}"
+                new_module_name = "#{module_name}"
               end
 
               # Fix imports of style import xx
