@@ -353,7 +353,6 @@ module CocoapodsPodMerge
       Pod::UI.puts "\tCreating Podspec for the merged framework".magenta
       private_headers_uniq = private_header_files.values.flatten
       public_headers_uniq = public_header_files.values.flatten
-      resource_bundles_uniq = resource_bundles.values.flatten
       pod_spec_info = PodspecInfo.new(
         frameworks.uniq, 
         prefix_header_contents.uniq, 
@@ -363,7 +362,7 @@ module CocoapodsPodMerge
         compiler_flags.uniq, 
         libraries.uniq, 
         prepare_command.uniq, 
-        resource_bundles_uniq, 
+        resource_bundles, 
         vendored_libraries.uniq, 
         swift_version, 
         public_headers_uniq, 
