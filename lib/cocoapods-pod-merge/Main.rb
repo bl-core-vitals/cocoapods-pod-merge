@@ -602,6 +602,10 @@ module CocoapodsPodMerge
         podspec.puts("s.libraries = #{libraries.to_s.delete('[').delete(']')}")
       end
 
+      unless compiler_flags.empty?
+        podspec.puts("s.compiler_flags = #{compiler_flags.to_s.delete('[').delete(']')}")
+      end
+
       unless prepare_command.empty?
         podspec.puts("s.prepare_command = #{prepare_command.to_s.delete('[').delete(']')}")
       end
