@@ -529,7 +529,7 @@ module CocoapodsPodMerge
       module_map.puts("framework module #{merged_framework_name} {")
       public_headers.each do |pod, headers|
         private_filenames = private_headers[pod].map { |path| File.basename(path) }
-        module_map.puts("\n\texplicit module #{pod.delete('+').delete('_')} {")
+        module_map.puts("\n\texplicit module #{pod.delete('+').delete('_').delete('-')} {")
         headers.each do |header|
           next if private_filenames.include?(header)
           module_map.puts("\t\theader \"#{header}\"")
