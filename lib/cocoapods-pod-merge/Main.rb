@@ -278,8 +278,9 @@ module CocoapodsPodMerge
               filename = header.delete_prefix("Sources/#{pod}/")
               public_headers_by_pod[pod] += Dir.glob("#{filename}").map { |h| File.basename(h) }
             end
-          else
-            public_headers_by_pod[pod] = Dir.glob('**/*.h').map { |header| File.basename(header) }
+					else
+						public_header_files[pod] = "Sources/#{pod}/**/*.h"
+						public_headers_by_pod[pod] = Dir.glob('**/*.h').map { |header| File.basename(header) }
           end
 
           same_source_file = ""
@@ -337,8 +338,8 @@ module CocoapodsPodMerge
         end
         
         # Copy over the Pods to be merged
-        Pod::UI.puts "\t\tCopying Sources".magenta
-        Dir.chdir("#{CacheDirectory}/Pods") do
+				Pod::UI.puts "\t\tCopying Sources".magenta
+				Dir.chdir("#{CacheDirectory}/Pods") do
           FileUtils.copy_entry pod.to_s, "../../#{InstallationDirectory}/#{merged_framework_name}/Sources/#{pod}"
         end
       end
